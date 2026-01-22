@@ -30,11 +30,11 @@ public class ActorImageProvider : BaseProvider, IRemoteImageProvider, IHasOrder
     public async Task<IEnumerable<RemoteImageInfo>> GetImages(BaseItem item, CancellationToken cancellationToken)
 #endif
     {
-        var pid = item.GetPid(Plugin.ProviderId);
-        if (string.IsNullOrWhiteSpace(pid.Id) || string.IsNullOrWhiteSpace(pid.Provider))
+        var pid = item.GetProviderId(Plugin.ProviderId);
+        if (string.IsNullOrWhiteSpace(pid))
             return Enumerable.Empty<RemoteImageInfo>();
 
-        var actorInfo = await ApiClient.GetActorInfoAsync(pid.Provider, pid.Id, cancellationToken);
+        var actorInfo = await ApiClient.GetActorInfoAsync(Plugin.ProviderId, pid, cancellationToken);
 
         if (actorInfo.Images?.Any() != true)
             return Enumerable.Empty<RemoteImageInfo>();

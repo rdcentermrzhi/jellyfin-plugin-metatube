@@ -3,6 +3,7 @@ using Jellyfin.Plugin.MetaTube.Metadata;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Providers;
+using MediaBrowser.Model.Entities;
 #if __EMBY__
 using MediaBrowser.Model.Logging;
 
@@ -25,16 +26,16 @@ public class ActorProvider : BaseProvider, IRemoteMetadataProvider<Person, Perso
     public async Task<MetadataResult<Person>> GetMetadata(PersonLookupInfo info,
         CancellationToken cancellationToken)
     {
-        var pid = info.GetPid(Plugin.ProviderId);
-        if (string.IsNullOrWhiteSpace(pid.Id) || string.IsNullOrWhiteSpace(pid.Provider))
+        var pid = info.GetProviderId(Name);
+        if (string.IsNullOrWhiteSpace(pid))
         {
             var firstResult = (await GetSearchResults(info, cancellationToken)).FirstOrDefault();
-            if (firstResult != null) pid = firstResult.GetPid(Plugin.ProviderId);
+            if (firstResult != null) pid = firstResult.GetProviderId(Plugin.ProviderId);
         }
 
-        Logger.Info("Get actor info: {0}", pid.ToString());
+        Logger.Info("Get actor info: {0}", pid);
 
-        var m = await ApiClient.GetActorInfoAsync(pid.Provider, pid.Id, cancellationToken);
+        var m = await ApiClient.GetActorInfoAsync(Name, pid, cancellationToken);
 
         var result = new MetadataResult<Person>
         {
@@ -49,7 +50,8 @@ public class ActorProvider : BaseProvider, IRemoteMetadataProvider<Person, Perso
         };
 
         // Set ProviderIdModel.
-        result.Item.SetPid(Name, m.Provider, m.Id);
+        //result.Item.SetPid(Name, m.Provider, m.Id);
+        result.Item.SetProviderId(Name, Uri.EscapeDataString(m.Id));
 
         // Set actor nationality.
         if (!string.IsNullOrWhiteSpace(m.Nationality))
@@ -61,27 +63,26 @@ public class ActorProvider : BaseProvider, IRemoteMetadataProvider<Person, Perso
     public async Task<IEnumerable<RemoteSearchResult>> GetSearchResults(
         PersonLookupInfo info, CancellationToken cancellationToken)
     {
-        var pid = info.GetPid(Plugin.ProviderId);
+        var pid = info.GetProviderId(Name);
 
         var searchResults = new List<ActorSearchResult>();
-        if (string.IsNullOrWhiteSpace(pid.Id))
+        if (string.IsNullOrWhiteSpace(pid))
         {
             // Search actor by name.
             Logger.Info("Search for actor: {0}", info.Name);
-            searchResults.AddRange(await ApiClient.SearchActorAsync(info.Name, pid.Provider, cancellationToken));
+            searchResults.AddRange(await ApiClient.SearchActorAsync(info.Name, Name ,cancellationToken));
         }
         else
         {
             // Exact search.
-            Logger.Info("Search for actor: {0}", pid.ToString());
-            searchResults.Add(await ApiClient.GetActorInfoAsync(pid.Provider, pid.Id,
-                pid.Update != true, cancellationToken));
+            Logger.Info("Search for actor: {0}", pid);
+            searchResults.Add(await ApiClient.GetActorInfoAsync(Name, pid, cancellationToken));
         }
 
         var results = new List<RemoteSearchResult>();
         if (!searchResults.Any())
         {
-            Logger.Warn("Actor not found: {0}", pid.Id);
+            Logger.Warn("Actor not found: {0}", info.Name);
             return results;
         }
 
@@ -95,7 +96,8 @@ public class ActorProvider : BaseProvider, IRemoteMetadataProvider<Person, Perso
                     ? ApiClient.GetPrimaryImageApiUrl(m.Provider, m.Id, m.Images.First(), 0.5, true)
                     : string.Empty
             };
-            result.SetPid(Name, m.Provider, m.Id);
+            //result.SetPid(Name, m.Provider, m.Id);
+            result.SetProviderId(Name, Uri.EscapeDataString(m.Id));
             results.Add(result);
         }
 
